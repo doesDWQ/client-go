@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -35,6 +36,7 @@ import (
 )
 
 func buildConfig(kubeconfig string) (*rest.Config, error) {
+	fmt.Println("kubeconfig:", kubeconfig)
 	if kubeconfig != "" {
 		cfg, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
@@ -43,6 +45,7 @@ func buildConfig(kubeconfig string) (*rest.Config, error) {
 		return cfg, nil
 	}
 
+	// 在k8s内部去配置k8s
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
@@ -50,7 +53,9 @@ func buildConfig(kubeconfig string) (*rest.Config, error) {
 	return cfg, nil
 }
 
+// 通过k8s库选举leader
 func main() {
+	// 初始化日志
 	klog.InitFlags(nil)
 
 	var kubeconfig string
@@ -58,9 +63,13 @@ func main() {
 	var leaseLockNamespace string
 	var id string
 
+	// 配置kubeconfig
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
+	// 设置id
 	flag.StringVar(&id, "id", uuid.New().String(), "the holder identity name")
+
 	flag.StringVar(&leaseLockName, "lease-lock-name", "", "the lease lock resource name")
+	// 锁的namespace
 	flag.StringVar(&leaseLockNamespace, "lease-lock-namespace", "", "the lease lock resource namespace")
 	flag.Parse()
 
@@ -76,12 +85,15 @@ func main() {
 	// a ConfigMap, or an Endpoints (deprecated) object.
 	// Conflicting writes are detected and each client handles those actions
 	// independently.
+	// 获取k8s配置
 	config, err := buildConfig(kubeconfig)
 	if err != nil {
 		klog.Fatal(err)
 	}
+	// 获取客户端
 	client := clientset.NewForConfigOrDie(config)
 
+	// 控制器循环跑
 	run := func(ctx context.Context) {
 		// complete your controller loop here
 		klog.Info("Controller loop...")
@@ -91,12 +103,14 @@ func main() {
 
 	// use a Go context so we can tell the leaderelection code when we
 	// want to step down
+	// 全局background
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// listen for interrupts or the Linux SIGTERM signal and cancel
 	// our context, which the leader election code will observe and
 	// step down
+	// 信号处理
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 	go func() {
@@ -107,6 +121,7 @@ func main() {
 
 	// we use the Lease lock type since edits to Leases are less common
 	// and fewer objects in the cluster watch "all Leases".
+	// v1客户端
 	lock := &resourcelock.LeaseLock{
 		LeaseMeta: metav1.ObjectMeta{
 			Name:      leaseLockName,

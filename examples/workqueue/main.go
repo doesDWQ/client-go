@@ -148,25 +148,31 @@ func main() {
 	var kubeconfig string
 	var master string
 
+	// 设置kubeconfig配置文件
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
+	// 设置master url
 	flag.StringVar(&master, "master", "", "master url")
 	flag.Parse()
 
+	// 获取配置项
 	// creates the connection
 	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
 	if err != nil {
 		klog.Fatal(err)
 	}
 
+	// 获取client
 	// creates the clientset
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		klog.Fatal(err)
 	}
 
+	// 创建pod监视器
 	// create the pod watcher
 	podListWatcher := cache.NewListWatchFromClient(clientset.CoreV1().RESTClient(), "pods", v1.NamespaceDefault, fields.Everything())
 
+	// 创建工作队列
 	// create the workqueue
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
@@ -180,12 +186,15 @@ func main() {
 			if err == nil {
 				queue.Add(key)
 			}
+
+			fmt.Printf("AddFunc:key:%s\n", key)
 		},
 		UpdateFunc: func(old interface{}, new interface{}) {
 			key, err := cache.MetaNamespaceKeyFunc(new)
 			if err == nil {
 				queue.Add(key)
 			}
+			fmt.Printf("UpdateFunc:key:%s\n", key)
 		},
 		DeleteFunc: func(obj interface{}) {
 			// IndexerInformer uses a delta queue, therefore for deletes we have to use this
@@ -194,6 +203,7 @@ func main() {
 			if err == nil {
 				queue.Add(key)
 			}
+			fmt.Printf("DeleteFunc:key:%s\n", key)
 		},
 	}, cache.Indexers{})
 
@@ -205,7 +215,7 @@ func main() {
 	// cache has synchronized.
 	indexer.Add(&v1.Pod{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      "mypod",
+			Name:      "demo",
 			Namespace: v1.NamespaceDefault,
 		},
 	})

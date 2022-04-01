@@ -43,7 +43,9 @@ import (
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/openstack"
 )
 
+// deployment操作实例
 func main() {
+	// 获取kubeconfig配置
 	var kubeconfig *string
 	if home := homedir.HomeDir(); home != "" {
 		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
@@ -52,17 +54,22 @@ func main() {
 	}
 	flag.Parse()
 
+	// 获取配置结构体
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {
 		panic(err)
 	}
+
+	// 获取操作rest客户端
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		panic(err)
 	}
 
+	// 获取deploy客户端
 	deploymentsClient := clientset.AppsV1().Deployments(apiv1.NamespaceDefault)
 
+	// 定义deployment
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "demo-deployment",
@@ -99,6 +106,7 @@ func main() {
 		},
 	}
 
+	// 创建deployment
 	// Create Deployment
 	fmt.Println("Creating deployment...")
 	result, err := deploymentsClient.Create(context.TODO(), deployment, metav1.CreateOptions{})
@@ -123,6 +131,7 @@ func main() {
 	// More Info:
 	// https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
 
+	// 更新deploy
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// Retrieve the latest version of Deployment before attempting update
 		// RetryOnConflict uses exponential backoff to avoid exhausting the apiserver
@@ -141,7 +150,7 @@ func main() {
 	}
 	fmt.Println("Updated deployment...")
 
-	// List Deployments
+	// 列出所有的deploy
 	prompt()
 	fmt.Printf("Listing deployments in namespace %q:\n", apiv1.NamespaceDefault)
 	list, err := deploymentsClient.List(context.TODO(), metav1.ListOptions{})
@@ -154,6 +163,7 @@ func main() {
 
 	// Delete Deployment
 	prompt()
+	// 删除所有的deployment
 	fmt.Println("Deleting deployment...")
 	deletePolicy := metav1.DeletePropagationForeground
 	if err := deploymentsClient.Delete(context.TODO(), "demo-deployment", metav1.DeleteOptions{

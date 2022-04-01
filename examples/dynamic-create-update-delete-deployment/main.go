@@ -44,7 +44,9 @@ import (
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/openstack"
 )
 
+// 使用更灵活的dynamic客户端创建deployment
 func main() {
+	// 获取k8s配置文件
 	var kubeconfig *string
 	if home := homedir.HomeDir(); home != "" {
 		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
@@ -53,19 +55,25 @@ func main() {
 	}
 	flag.Parse()
 
+	// 设置命名空间
 	namespace := "default"
 
+	// 获取k8s配置结构体
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {
 		panic(err)
 	}
+
+	// 获取k8s通讯客户端
 	client, err := dynamic.NewForConfig(config)
 	if err != nil {
 		panic(err)
 	}
 
+	// 设置配置版本
 	deploymentRes := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
 
+	// 设置 deployment 内容
 	deployment := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apps/v1",
@@ -107,7 +115,7 @@ func main() {
 		},
 	}
 
-	// Create Deployment
+	// 创建deploy配置
 	fmt.Println("Creating deployment...")
 	result, err := client.Resource(deploymentRes).Namespace(namespace).Create(context.TODO(), deployment, metav1.CreateOptions{})
 	if err != nil {
@@ -131,6 +139,7 @@ func main() {
 	// More Info:
 	// https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
 
+	// 更新函数
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// Retrieve the latest version of Deployment before attempting update
 		// RetryOnConflict uses exponential backoff to avoid exhausting the apiserver
@@ -139,6 +148,7 @@ func main() {
 			panic(fmt.Errorf("failed to get latest version of Deployment: %v", getErr))
 		}
 
+		// 设置replicas的数量为1
 		// update replicas to 1
 		if err := unstructured.SetNestedField(result.Object, int64(1), "spec", "replicas"); err != nil {
 			panic(fmt.Errorf("failed to set replica value: %v", err))
@@ -150,14 +160,18 @@ func main() {
 			panic(fmt.Errorf("deployment containers not found or error in spec: %v", err))
 		}
 
+		// 更新镜像版本
 		// update container[0] image
 		if err := unstructured.SetNestedField(containers[0].(map[string]interface{}), "nginx:1.13", "image"); err != nil {
 			panic(err)
 		}
+
+		// 将更新配置写入进去
 		if err := unstructured.SetNestedField(result.Object, containers, "spec", "template", "spec", "containers"); err != nil {
 			panic(err)
 		}
 
+		// 重新跟心数据
 		_, updateErr := client.Resource(deploymentRes).Namespace(namespace).Update(context.TODO(), result, metav1.UpdateOptions{})
 		return updateErr
 	})
@@ -166,6 +180,7 @@ func main() {
 	}
 	fmt.Println("Updated deployment...")
 
+	// 列出所有的deploy
 	// List Deployments
 	prompt()
 	fmt.Printf("Listing deployments in namespace %q:\n", apiv1.NamespaceDefault)
@@ -182,6 +197,7 @@ func main() {
 		fmt.Printf(" * %s (%d replicas)\n", d.GetName(), replicas)
 	}
 
+	// 删除所有的deployment
 	// Delete Deployment
 	prompt()
 	fmt.Println("Deleting deployment...")
@@ -196,6 +212,7 @@ func main() {
 	fmt.Println("Deleted deployment.")
 }
 
+// 读取数据
 func prompt() {
 	fmt.Printf("-> Press Return key to continue.")
 	scanner := bufio.NewScanner(os.Stdin)

@@ -17,6 +17,7 @@ limitations under the License.
 package cache
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -42,8 +43,11 @@ func compareInts(val1 interface{}, val2 interface{}) bool {
 }
 
 // TestHeapBasic tests Heap invariant and synchronization.
+// 基础的入队出队操作
 func TestHeapBasic(t *testing.T) {
+	// 获取heap对象 堆对象
 	h := NewHeap(testHeapObjectKeyFunc, compareInts)
+	// 定义waitGroup
 	var wg sync.WaitGroup
 	wg.Add(2)
 	const amount = 500
@@ -77,6 +81,7 @@ func TestHeapBasic(t *testing.T) {
 }
 
 // Tests Heap.Add and ensures that heap invariant is preserved after adding items.
+// 测试入队出队，更新，删除
 func TestHeap_Add(t *testing.T) {
 	h := NewHeap(testHeapObjectKeyFunc, compareInts)
 	h.Add(mkHeapObj("foo", 10))
@@ -85,28 +90,36 @@ func TestHeap_Add(t *testing.T) {
 	h.Add(mkHeapObj("zab", 30))
 	h.Add(mkHeapObj("foo", 13)) // This updates "foo".
 
+	// 出队操作 1
 	item, err := h.Pop()
 	if e, a := 1, item.(testHeapObject).val; err != nil || a != e {
 		t.Fatalf("expected %d, got %d", e, a)
 	}
+	fmt.Println(item.(testHeapObject).val)
+	// 出队操作 11
 	item, err = h.Pop()
 	if e, a := 11, item.(testHeapObject).val; err != nil || a != e {
 		t.Fatalf("expected %d, got %d", e, a)
 	}
+	fmt.Println(item.(testHeapObject).val)
+
 	h.Delete(mkHeapObj("baz", 11)) // Nothing is deleted.
 	h.Add(mkHeapObj("foo", 14))    // foo is updated.
 	item, err = h.Pop()
 	if e, a := 14, item.(testHeapObject).val; err != nil || a != e {
 		t.Fatalf("expected %d, got %d", e, a)
 	}
+	fmt.Println(item.(testHeapObject).val)
 	item, err = h.Pop()
 	if e, a := 30, item.(testHeapObject).val; err != nil || a != e {
 		t.Fatalf("expected %d, got %d", e, a)
 	}
+	fmt.Println(item.(testHeapObject).val)
 }
 
 // TestHeap_BulkAdd tests Heap.BulkAdd functionality and ensures that all the
 // items given to BulkAdd are added to the queue before Pop reads them.
+// 批量插入逐个取出数据
 func TestHeap_BulkAdd(t *testing.T) {
 	h := NewHeap(testHeapObjectKeyFunc, compareInts)
 	const amount = 500
@@ -126,11 +139,13 @@ func TestHeap_BulkAdd(t *testing.T) {
 		if err != nil || prevNum >= num {
 			t.Errorf("got %v out of order, last was %v", obj, prevNum)
 		}
+		fmt.Println(num)
 		prevNum = num
 	}
 }
 
 // TestHeapEmptyPop tests that pop returns properly after heap is closed.
+// 空数据出栈则报错
 func TestHeapEmptyPop(t *testing.T) {
 	h := NewHeap(testHeapObjectKeyFunc, compareInts)
 	go func() {
@@ -138,6 +153,7 @@ func TestHeapEmptyPop(t *testing.T) {
 		h.Close()
 	}()
 	_, err := h.Pop()
+	fmt.Println(err)
 	if err == nil || err.Error() != closedMsg {
 		t.Errorf("pop should have returned heap closed error: %v", err)
 	}
@@ -145,6 +161,7 @@ func TestHeapEmptyPop(t *testing.T) {
 
 // TestHeap_AddIfNotPresent tests Heap.AddIfNotPresent and ensures that heap
 // invariant is preserved after adding items.
+// 测试不存在则添加数据
 func TestHeap_AddIfNotPresent(t *testing.T) {
 	h := NewHeap(testHeapObjectKeyFunc, compareInts)
 	h.AddIfNotPresent(mkHeapObj("foo", 10))
@@ -181,6 +198,7 @@ func TestHeap_AddIfNotPresent(t *testing.T) {
 
 // TestHeap_Delete tests Heap.Delete and ensures that heap invariant is
 // preserved after deleting items.
+// 测试删除元素
 func TestHeap_Delete(t *testing.T) {
 	h := NewHeap(testHeapObjectKeyFunc, compareInts)
 	h.Add(mkHeapObj("foo", 10))
@@ -226,6 +244,7 @@ func TestHeap_Delete(t *testing.T) {
 
 // TestHeap_Update tests Heap.Update and ensures that heap invariant is
 // preserved after adding items.
+// 测试更新元素
 func TestHeap_Update(t *testing.T) {
 	h := NewHeap(testHeapObjectKeyFunc, compareInts)
 	h.Add(mkHeapObj("foo", 10))
@@ -250,6 +269,7 @@ func TestHeap_Update(t *testing.T) {
 }
 
 // TestHeap_Get tests Heap.Get.
+// 测试获取元素是否存在
 func TestHeap_Get(t *testing.T) {
 	h := NewHeap(testHeapObjectKeyFunc, compareInts)
 	h.Add(mkHeapObj("foo", 10))
@@ -262,6 +282,7 @@ func TestHeap_Get(t *testing.T) {
 	if err != nil || exists == false || obj.(testHeapObject).val != 11 {
 		t.Fatalf("unexpected error in getting element")
 	}
+	fmt.Println(exists, obj)
 	// Get non-existing object.
 	_, exists, err = h.Get(mkHeapObj("non-existing", 0))
 	if err != nil || exists == true {
@@ -270,6 +291,7 @@ func TestHeap_Get(t *testing.T) {
 }
 
 // TestHeap_GetByKey tests Heap.GetByKey and is very similar to TestHeap_Get.
+// 测试指定key是否存在
 func TestHeap_GetByKey(t *testing.T) {
 	h := NewHeap(testHeapObjectKeyFunc, compareInts)
 	h.Add(mkHeapObj("foo", 10))
@@ -289,6 +311,7 @@ func TestHeap_GetByKey(t *testing.T) {
 }
 
 // TestHeap_Close tests Heap.Close and Heap.IsClosed functions.
+// 测试关闭堆
 func TestHeap_Close(t *testing.T) {
 	h := NewHeap(testHeapObjectKeyFunc, compareInts)
 	h.Add(mkHeapObj("foo", 10))
@@ -304,6 +327,7 @@ func TestHeap_Close(t *testing.T) {
 }
 
 // TestHeap_List tests Heap.List function.
+// 测试列出堆里面所有的数据
 func TestHeap_List(t *testing.T) {
 	h := NewHeap(testHeapObjectKeyFunc, compareInts)
 	list := h.List()
@@ -331,11 +355,13 @@ func TestHeap_List(t *testing.T) {
 		if !ok || v != heapObj.val {
 			t.Errorf("unexpected item in the list: %v", heapObj)
 		}
+		fmt.Println(v)
 	}
 }
 
 // TestHeap_ListKeys tests Heap.ListKeys function. Scenario is the same as
 // TestHeap_list.
+// 测试列出所有的key
 func TestHeap_ListKeys(t *testing.T) {
 	h := NewHeap(testHeapObjectKeyFunc, compareInts)
 	list := h.ListKeys()
@@ -367,6 +393,7 @@ func TestHeap_ListKeys(t *testing.T) {
 
 // TestHeapAddAfterClose tests that heap returns an error if anything is added
 // after it is closed.
+// 测试堆关闭后插入数据
 func TestHeapAddAfterClose(t *testing.T) {
 	h := NewHeap(testHeapObjectKeyFunc, compareInts)
 	h.Close()

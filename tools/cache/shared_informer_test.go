@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/clock"
@@ -96,28 +96,42 @@ func (l *testListener) satisfiedExpectations() bool {
 	return sets.NewString(l.receivedItemNames...).Equal(l.expectedItemNames)
 }
 
+// 测试监视器的 listener 是否安装设置的时间运行， informer 的rsync 使用的其中最小的一个时间
 func TestListenerResyncPeriods(t *testing.T) {
-	// source simulates an apiserver object endpoint.
+	// 假数据源，获取数据的地方
 	source := fcache.NewFakeControllerSource()
+	// 添加事件1
 	source.Add(&v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod1"}})
+	// 添加事件2
 	source.Add(&v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod2"}})
 
-	// create the shared informer and resync every 1s
+	// 获取schema
 	informer := NewSharedInformer(source, &v1.Pod{}, 1*time.Second).(*sharedIndexInformer)
 
+	// 将informer.clock 设置为假时钟
 	clock := clock.NewFakeClock(time.Now())
 	informer.clock = clock
 	informer.processor.clock = clock
 
-	// listener 1, never resync
+	/**
+	1, listener的作用：执行对应的handler方法
+	2，listrener什么时候起作用，被informer的 HandleDeltas 方法调用,
+		也注册为Controller的Process处理方法，
+		被controller的processLoop方法所调用，这个processLoop在run中被调用
+		processLoop主要作用是从 datafifo中 pop 到数据
+		然后调用对应的监听器处理事件
+
+		期间还会更新对应的被监视的对象
+	*/
+	// 添加一个监听器 1
 	listener1 := newTestListener("listener1", 0, "pod1", "pod2")
 	informer.AddEventHandlerWithResyncPeriod(listener1, listener1.resyncPeriod)
 
-	// listener 2, resync every 2s
+	// 添加一个监听器 2
 	listener2 := newTestListener("listener2", 2*time.Second, "pod1", "pod2")
 	informer.AddEventHandlerWithResyncPeriod(listener2, listener2.resyncPeriod)
 
-	// listener 3, resync every 3s
+	// 添加一个监听器 3
 	listener3 := newTestListener("listener3", 3*time.Second, "pod1", "pod2")
 	informer.AddEventHandlerWithResyncPeriod(listener3, listener3.resyncPeriod)
 	listeners := []*testListener{listener1, listener2, listener3}
@@ -127,6 +141,7 @@ func TestListenerResyncPeriods(t *testing.T) {
 
 	go informer.Run(stop)
 
+	// 验证得到的结果是否正确
 	// ensure all listeners got the initial List
 	for _, listener := range listeners {
 		if !listener.ok() {
@@ -134,11 +149,13 @@ func TestListenerResyncPeriods(t *testing.T) {
 		}
 	}
 
+	// 重置后，调用 resyn 函数去修改结果, 测试 listener 的 resyncPeriod 是否生效
 	// reset
 	for _, listener := range listeners {
 		listener.receivedItemNames = []string{}
 	}
 
+	// 往后移动2秒钟
 	// advance so listener2 gets a resync
 	clock.Step(2 * time.Second)
 
@@ -150,10 +167,12 @@ func TestListenerResyncPeriods(t *testing.T) {
 	// wait a bit to give errant items a chance to go to 1 and 3
 	time.Sleep(1 * time.Second)
 
+	// 因为清空过一次，所以此时listener里面是没有数据的
 	// make sure listeners 1 and 3 got nothing
 	if len(listener1.receivedItemNames) != 0 {
 		t.Errorf("listener1: should not have resynced (got %d)", len(listener1.receivedItemNames))
 	}
+	// 因为清空过一次，所以此时listener里面是没有数据的， listener3也还没达到resync时间
 	if len(listener3.receivedItemNames) != 0 {
 		t.Errorf("listener3: should not have resynced (got %d)", len(listener3.receivedItemNames))
 	}
@@ -166,6 +185,7 @@ func TestListenerResyncPeriods(t *testing.T) {
 	// advance so listener3 gets a resync
 	clock.Step(1 * time.Second)
 
+	// 往后走一步 lestener3有数据了
 	// make sure listener3 got the resync
 	if !listener3.ok() {
 		t.Errorf("%s: expected %v, got %v", listener3.name, listener3.expectedItemNames, listener3.receivedItemNames)
@@ -174,6 +194,7 @@ func TestListenerResyncPeriods(t *testing.T) {
 	// wait a bit to give errant items a chance to go to 1 and 2
 	time.Sleep(1 * time.Second)
 
+	// 此时1和2 应该是没有数据的
 	// make sure listeners 1 and 2 got nothing
 	if len(listener1.receivedItemNames) != 0 {
 		t.Errorf("listener1: should not have resynced (got %d)", len(listener1.receivedItemNames))
@@ -183,33 +204,44 @@ func TestListenerResyncPeriods(t *testing.T) {
 	}
 }
 
+// 测试resync检查函数
 func TestResyncCheckPeriod(t *testing.T) {
+	// 设置数据源
 	// source simulates an apiserver object endpoint.
 	source := fcache.NewFakeControllerSource()
 
+	// 获取到informer
 	// create the shared informer and resync every 12 hours
 	informer := NewSharedInformer(source, &v1.Pod{}, 12*time.Hour).(*sharedIndexInformer)
 
+	// 设置时钟
 	clock := clock.NewFakeClock(time.Now())
 	informer.clock = clock
 	informer.processor.clock = clock
 
+	// 设置第一个监听器
 	// listener 1, never resync
 	listener1 := newTestListener("listener1", 0)
 	informer.AddEventHandlerWithResyncPeriod(listener1, listener1.resyncPeriod)
+	// 测试informer 设置的 resyncCheckPeriod 是否ok
 	if e, a := 12*time.Hour, informer.resyncCheckPeriod; e != a {
 		t.Errorf("expected %d, got %d", e, a)
 	}
+
+	// 测试listener[0] 的resyncPeriod是不是0
 	if e, a := time.Duration(0), informer.processor.listeners[0].resyncPeriod; e != a {
 		t.Errorf("expected %d, got %d", e, a)
 	}
 
+	// 减小rsync的时间
 	// listener 2, resync every minute
 	listener2 := newTestListener("listener2", 1*time.Minute)
 	informer.AddEventHandlerWithResyncPeriod(listener2, listener2.resyncPeriod)
 	if e, a := 1*time.Minute, informer.resyncCheckPeriod; e != a {
 		t.Errorf("expected %d, got %d", e, a)
 	}
+
+	// 每个listener都有自己的同步时间
 	if e, a := time.Duration(0), informer.processor.listeners[0].resyncPeriod; e != a {
 		t.Errorf("expected %d, got %d", e, a)
 	}
@@ -270,8 +302,10 @@ func TestSharedInformerInitializationRace(t *testing.T) {
 // resync and no resync see the expected state.
 func TestSharedInformerWatchDisruption(t *testing.T) {
 	// source simulates an apiserver object endpoint.
+	// 设置数据源
 	source := fcache.NewFakeControllerSource()
 
+	// 添加两个pod
 	source.Add(&v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod1", UID: "pod1", ResourceVersion: "1"}})
 	source.Add(&v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod2", UID: "pod2", ResourceVersion: "2"}})
 
@@ -322,6 +356,7 @@ func TestSharedInformerWatchDisruption(t *testing.T) {
 	// This calls shouldSync, which deletes noResync from the list of syncingListeners
 	clock.Step(1 * time.Second)
 
+	// 模拟链接丢失
 	// Simulate a connection loss (or even just a too-old-watch)
 	source.ResetWatch()
 
@@ -332,6 +367,7 @@ func TestSharedInformerWatchDisruption(t *testing.T) {
 	}
 }
 
+// 测试错误处理函数
 func TestSharedInformerErrorHandling(t *testing.T) {
 	source := fcache.NewFakeControllerSource()
 	source.Add(&v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod1"}})

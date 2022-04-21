@@ -28,6 +28,7 @@ func TestBasic(t *testing.T) {
 	// If something is seriously wrong this test will never complete.
 	q := workqueue.New()
 
+	// 启动生产者
 	// Start producers
 	const producers = 50
 	producerWG := sync.WaitGroup{}
@@ -42,6 +43,7 @@ func TestBasic(t *testing.T) {
 		}(i)
 	}
 
+	// 启动消费者
 	// Start consumers
 	const consumers = 10
 	consumerWG := sync.WaitGroup{}
@@ -71,6 +73,7 @@ func TestBasic(t *testing.T) {
 	consumerWG.Wait()
 }
 
+// 测试消费中的状态
 func TestAddWhileProcessing(t *testing.T) {
 	q := workqueue.New()
 
@@ -114,6 +117,7 @@ func TestAddWhileProcessing(t *testing.T) {
 	consumerWG.Wait()
 }
 
+// 获取到长度
 func TestLen(t *testing.T) {
 	q := workqueue.New()
 	q.Add("foo")
@@ -130,6 +134,7 @@ func TestLen(t *testing.T) {
 	}
 }
 
+// 测试重复插入
 func TestReinsert(t *testing.T) {
 	q := workqueue.New()
 	q.Add("foo")

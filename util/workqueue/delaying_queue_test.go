@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+// 带延迟的队列
 func TestSimpleQueue(t *testing.T) {
 	fakeClock := clock.NewFakeClock(time.Now())
 	q := NewDelayingQueueWithCustomClock(fakeClock, "")

@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+// 测试删除功能 1
 func TestThreadSafeStoreDeleteRemovesEmptySetsFromIndex(t *testing.T) {
 	testIndexer := "testIndexer"
 
@@ -55,6 +56,7 @@ func TestThreadSafeStoreDeleteRemovesEmptySetsFromIndex(t *testing.T) {
 	}
 }
 
+// 测试删除功能 2
 func TestThreadSafeStoreAddKeepsNonEmptySetPostDeleteFromIndex(t *testing.T) {
 	testIndexer := "testIndexer"
 	testIndex := "testIndex"
@@ -93,6 +95,7 @@ func TestThreadSafeStoreAddKeepsNonEmptySetPostDeleteFromIndex(t *testing.T) {
 	}
 }
 
+// 测试添加索引后的增加逻辑
 func TestAddIndexerAfterAdd(t *testing.T) {
 	store := NewThreadSafeStore(Indexers{}, Indices{})
 
@@ -114,9 +117,11 @@ func TestAddIndexerAfterAdd(t *testing.T) {
 	store.Add("keyb", "value")
 
 	// Assert
+	// 获取到索引的key值
 	indexKeys, _ := store.IndexKeys("first", "value")
 	expected := sets.NewString("keya", "keyb")
 	actual := sets.NewString(indexKeys...)
+	// 校验获取到的值是否一致
 	if !actual.Equal(expected) {
 		t.Errorf("expected %v does not match actual %v", expected, actual)
 	}

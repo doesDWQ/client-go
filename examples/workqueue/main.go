@@ -154,6 +154,7 @@ func main() {
 	flag.StringVar(&master, "master", "", "master url")
 	flag.Parse()
 
+	fmt.Println(kubeconfig)
 	// 获取配置项
 	// creates the connection
 	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)

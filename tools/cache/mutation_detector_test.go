@@ -1,3 +1,4 @@
+//go:build !race
 // +build !race
 
 /*
@@ -22,13 +23,15 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 )
 
+// MutationDetector 监听变化
 func TestMutationDetector(t *testing.T) {
+	// 获取假的watch
 	fakeWatch := watch.NewFake()
 	lw := &testLW{
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
@@ -38,12 +41,16 @@ func TestMutationDetector(t *testing.T) {
 			return &v1.PodList{}, nil
 		},
 	}
+
+	// 制造一个pod
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "anything",
 			Labels: map[string]string{"check": "foo"},
 		},
 	}
+
+	// 创建stopCh
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 	addReceived := make(chan bool)
@@ -72,6 +79,7 @@ func TestMutationDetector(t *testing.T) {
 	case <-addReceived:
 	}
 
+	// 这里使用的 MutationDetector 来监听变化的
 	pod.Labels["change"] = "true"
 
 	select {

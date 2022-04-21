@@ -66,6 +66,8 @@ func main() {
 		panic(err)
 	}
 
+	// ver, err := clientset.Discovery().ServerVersion()
+
 	// 获取deploy客户端
 	deploymentsClient := clientset.AppsV1().Deployments(apiv1.NamespaceDefault)
 

@@ -18,8 +18,10 @@ package cache
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 )
@@ -55,7 +57,41 @@ func (kl literalListerGetter) GetByKey(key string) (interface{}, bool, error) {
 	return nil, false, nil
 }
 
+// crond的主要作用是用来并发的跑协程，并且保护条件的
+func TestMyCron(t *testing.T) {
+
+	c := sync.NewCond(&sync.Mutex{})
+	var ready int
+
+	for i := 0; i < 10; i++ {
+		go func(i int) {
+			time.Sleep(1 * time.Second)
+
+			// 加锁更改等待条件
+			c.L.Lock()
+			ready++
+			log.Printf("运动员#%d 已准备就绪\n", i)
+			c.L.Unlock()
+			// 广播唤醒所有的等待者
+			c.Signal()
+			// c.Broadcast()
+		}(i)
+	}
+
+	c.L.Lock()
+	for ready != 10 {
+		c.Wait()
+		log.Println("裁判员被唤醒一次")
+	}
+	c.L.Unlock()
+
+	//所有的运动员是否就绪
+	log.Println("所有运动员都准备就绪。比赛开始，3，2，1, ......")
+}
+
+// 测试基础的入队和出队功能
 func TestDeltaFIFO_basic(t *testing.T) {
+	// 获取datafifo对象，设置keyfuc
 	f := NewDeltaFIFO(testFifoObjectKeyFunc, nil)
 	const amount = 500
 	go func() {
@@ -90,6 +126,7 @@ func TestDeltaFIFO_basic(t *testing.T) {
 	}
 }
 
+// 处理replace事件
 // TestDeltaFIFO_replaceWithDeleteDeltaIn tests that a `Sync` delta for an
 // object `O` with ID `X` is added when .Replace is called and `O` is among the
 // replacement objects even if the DeltaFIFO already stores in terminal position
@@ -104,6 +141,7 @@ func TestDeltaFIFO_replaceWithDeleteDeltaIn(t *testing.T) {
 		return []testFifoObject{oldObj}
 	}))
 
+	// 增加一个删除事件
 	f.Delete(oldObj)
 	f.Replace([]interface{}{newObj}, "")
 
@@ -117,6 +155,7 @@ func TestDeltaFIFO_replaceWithDeleteDeltaIn(t *testing.T) {
 	}
 }
 
+// 测试错误的时候是否会丢数据
 func TestDeltaFIFO_requeueOnPop(t *testing.T) {
 	f := NewDeltaFIFO(testFifoObjectKeyFunc, nil)
 
@@ -161,6 +200,7 @@ func TestDeltaFIFO_requeueOnPop(t *testing.T) {
 	}
 }
 
+// 测试update delete add 方法
 func TestDeltaFIFO_addUpdate(t *testing.T) {
 	f := NewDeltaFIFO(testFifoObjectKeyFunc, nil)
 	f.Add(mkFifoObj("foo", 10))
@@ -199,6 +239,7 @@ func TestDeltaFIFO_addUpdate(t *testing.T) {
 	}
 }
 
+// 测试队列正常运行的状态
 func TestDeltaFIFO_enqueueingNoLister(t *testing.T) {
 	f := NewDeltaFIFO(testFifoObjectKeyFunc, nil)
 	f.Add(mkFifoObj("foo", 10))
@@ -220,6 +261,7 @@ func TestDeltaFIFO_enqueueingNoLister(t *testing.T) {
 	}
 }
 
+// 加上删除测试
 func TestDeltaFIFO_enqueueingWithLister(t *testing.T) {
 	f := NewDeltaFIFO(
 		testFifoObjectKeyFunc,
@@ -244,6 +286,7 @@ func TestDeltaFIFO_enqueueingWithLister(t *testing.T) {
 	}
 }
 
+// 测试 replace 和 add 方法
 func TestDeltaFIFO_addReplace(t *testing.T) {
 	f := NewDeltaFIFO(testFifoObjectKeyFunc, nil)
 	f.Add(mkFifoObj("foo", 10))
@@ -289,6 +332,7 @@ func TestDeltaFIFO_ResyncNonExisting(t *testing.T) {
 	}
 }
 
+// 测试resync方法
 func TestDeltaFIFO_Resync(t *testing.T) {
 	f := NewDeltaFIFO(
 		testFifoObjectKeyFunc,
@@ -296,6 +340,7 @@ func TestDeltaFIFO_Resync(t *testing.T) {
 			return []testFifoObject{mkFifoObj("foo", 5)}
 		}),
 	)
+	// 同步数据
 	f.Resync()
 
 	deltas := f.items["foo"]
@@ -307,6 +352,7 @@ func TestDeltaFIFO_Resync(t *testing.T) {
 	}
 }
 
+// 测试delete方法
 func TestDeltaFIFO_DeleteExistingNonPropagated(t *testing.T) {
 	f := NewDeltaFIFO(
 		testFifoObjectKeyFunc,
@@ -326,6 +372,7 @@ func TestDeltaFIFO_DeleteExistingNonPropagated(t *testing.T) {
 	}
 }
 
+// 测试删除功能
 func TestDeltaFIFO_ReplaceMakesDeletions(t *testing.T) {
 	// We test with only one pre-existing object because there is no
 	// promise about how their deletes are ordered.

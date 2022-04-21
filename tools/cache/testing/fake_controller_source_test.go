@@ -48,7 +48,9 @@ func consume(t *testing.T, w watch.Interface, rvs []string, done *sync.WaitGroup
 	}
 }
 
+// 测试资源对象的watch功能
 func TestRCNumber(t *testing.T) {
+	// 制造pod对象的函数
 	pod := func(name string) *v1.Pod {
 		return &v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -57,18 +59,25 @@ func TestRCNumber(t *testing.T) {
 		}
 	}
 
+	// 并发执行
 	wg := &sync.WaitGroup{}
 	wg.Add(3)
 
 	source := NewFakeControllerSource()
+	// 增加事件
 	source.Add(pod("foo"))
+	// 修改事件
 	source.Modify(pod("foo"))
+	// 修改事件
 	source.Modify(pod("foo"))
 
+	// 监视制定版本之后新增的事件
 	w, err := source.Watch(metav1.ListOptions{ResourceVersion: "1"})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
+
+	// 异步消费掉事件
 	go consume(t, w, []string{"2", "3"}, wg)
 
 	list, err := source.List(metav1.ListOptions{})

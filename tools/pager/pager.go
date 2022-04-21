@@ -82,6 +82,7 @@ func (p *ListPager) List(ctx context.Context, options metav1.ListOptions) (runti
 	paginatedResult := false
 
 	for {
+		// 处理停止信号
 		select {
 		case <-ctx.Done():
 			return nil, paginatedResult, ctx.Err()
@@ -89,6 +90,7 @@ func (p *ListPager) List(ctx context.Context, options metav1.ListOptions) (runti
 		}
 
 		obj, err := p.PageFn(ctx, options)
+		// 有错误重试
 		if err != nil {
 			// Only fallback to full list if an "Expired" errors is returned, FullListIfExpired is true, and
 			// the "Expired" error occurred in page 2 or later (since full list is intended to prevent a pager.List from

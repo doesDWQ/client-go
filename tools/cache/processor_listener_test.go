@@ -33,6 +33,7 @@ func BenchmarkListener(b *testing.B) {
 
 	var swg sync.WaitGroup
 	swg.Add(b.N)
+	// 设置线程数
 	b.SetParallelism(concurrencyLevel)
 	// Preallocate enough space so that benchmark does not run out of it
 	pl := newProcessListener(&ResourceEventHandlerFuncs{
@@ -46,13 +47,18 @@ func BenchmarkListener(b *testing.B) {
 	wg.Start(pl.run)
 	wg.Start(pl.pop)
 
+	// 压力测试显示结果设置
 	b.ReportAllocs()
+
+	// 重置定时器
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
+			// 循环往add中塞入数据
 			pl.add(notification)
 		}
 	})
-	swg.Wait() // Block until all notifications have been received
-	b.StopTimer()
+	// 等待停止
+	swg.Wait()    // Block until all notifications have been received
+	b.StopTimer() // 停止计时器
 }

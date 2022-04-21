@@ -47,6 +47,7 @@ import (
 const defaultExpectedTypeName = "<unspecified>"
 
 // Reflector watches a specified resource and causes all changes to be reflected in the given store.
+// Reflector监视指定的资源，并使所有更改反映在给定的存储中。
 type Reflector struct {
 	// name identifies this reflector. By default it will be a file:line if possible.
 	name string
@@ -164,6 +165,8 @@ func NewNamespaceKeyedIndexerAndReflector(lw ListerWatcher, expectedType interfa
 // "yes".  This enables you to use reflectors to periodically process
 // everything as well as incrementally processing the things that
 // change.
+
+// 获取到reflector对象  反射器
 func NewReflector(lw ListerWatcher, expectedType interface{}, store Store, resyncPeriod time.Duration) *Reflector {
 	return NewNamedReflector(naming.GetNameFromCallsite(internalPackages...), lw, expectedType, store, resyncPeriod)
 }
@@ -218,6 +221,7 @@ var internalPackages = []string{"client-go/tools/cache/"}
 // Run will exit when stopCh is closed.
 func (r *Reflector) Run(stopCh <-chan struct{}) {
 	klog.V(2).Infof("Starting reflector %s (%s) from %s", r.expectedTypeName, r.resyncPeriod, r.name)
+	// 循环处理，并且降低处理速度
 	wait.BackoffUntil(func() {
 		if err := r.ListAndWatch(stopCh); err != nil {
 			r.watchErrorHandler(r, err)
@@ -256,17 +260,24 @@ func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
 	klog.V(3).Infof("Listing and watching %v from %s", r.expectedTypeName, r.name)
 	var resourceVersion string
 
+	// list参数
 	options := metav1.ListOptions{ResourceVersion: r.relistResourceVersion()}
 
+	// 获取list数据
 	if err := func() error {
+		// trace 不用看
 		initTrace := trace.New("Reflector ListAndWatch", trace.Field{"name", r.name})
 		defer initTrace.LogIfLong(10 * time.Second)
+
+		//
 		var list runtime.Object
 		var paginatedResult bool
 		var err error
 		listCh := make(chan struct{}, 1)
+		// 存储所有的错误
 		panicCh := make(chan interface{}, 1)
 		go func() {
+			// 错误处理
 			defer func() {
 				if r := recover(); r != nil {
 					panicCh <- r
@@ -278,7 +289,7 @@ func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
 				return r.listerWatcher.List(opts)
 			}))
 			switch {
-			case r.WatchListPageSize != 0:
+			case r.WatchListPageSize != 0: // 如果没设置了分页数量则设置上
 				pager.PageSize = r.WatchListPageSize
 			case r.paginatedResult:
 				// We got a paginated result initially. Assume this resource and server honor

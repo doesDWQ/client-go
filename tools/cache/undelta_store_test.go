@@ -41,6 +41,7 @@ var (
 )
 */
 
+// 测试带回调的推送
 func TestUpdateCallsPush(t *testing.T) {
 	mkObj := func(name string, val interface{}) testUndeltaObject {
 		return testUndeltaObject{name: name, val: val}
@@ -67,6 +68,7 @@ func TestUpdateCallsPush(t *testing.T) {
 	}
 }
 
+// 测试删除后执行函数的能力
 func TestDeleteCallsPush(t *testing.T) {
 	mkObj := func(name string, val interface{}) testUndeltaObject {
 		return testUndeltaObject{name: name, val: val}
@@ -92,6 +94,7 @@ func TestDeleteCallsPush(t *testing.T) {
 	}
 }
 
+// 获取是不带推送功能的
 func TestReadsDoNotCallPush(t *testing.T) {
 	push := func(m []interface{}) {
 		t.Errorf("Unexpected call to push!")
@@ -104,6 +107,7 @@ func TestReadsDoNotCallPush(t *testing.T) {
 	_, _, _ = u.Get(testUndeltaObject{"a", ""})
 }
 
+// replcae 带推送功能测试
 func TestReplaceCallsPush(t *testing.T) {
 	mkObj := func(name string, val interface{}) testUndeltaObject {
 		return testUndeltaObject{name: name, val: val}

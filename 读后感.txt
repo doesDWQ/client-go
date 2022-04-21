@@ -1,0 +1,13 @@
+阅读源码流程，先知道架构图，或者从入口处找。。。。。   
+从测试用例了解方法的使用，debug调试帮组理解和屏蔽一些底层接口
+
+万丈高楼平地起还是一点点看比较好
+
+reflector: 核心函数 listAndWatch 负责列表获取数据和更新数据，并且保存到store中
+store 负责存储的抽象： 包含 UndeltaStore, threadSafeMap, FIFO, 
+threadSafeMap: 安全的删除接口， 也是cache，store的实现
+UndeltaStore: 在stroe上的 一个包装，执行封装后的特定方法
+fifo：队列操作，增删改查什么的，delta_fifo的简化版本
+deltaFifo: 存储事件对象的队列
+
+Indexer：定义了各种类型的index，包含对象的正逆向索引

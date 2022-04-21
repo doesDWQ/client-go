@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -31,37 +31,55 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	fcache "k8s.io/client-go/tools/cache/testing"
 
-	"github.com/google/gofuzz"
+	fuzz "github.com/google/gofuzz"
 )
 
+// func MyTest() {
+// 	type x struct {
+// 		Name string
+// 	}
+
+// 	d := x{}
+
+// 	fmt.Println(d.String())
+// }
+
+// 简单测试功能是否能正常使用
 func Example() {
+	// 获取数据源
 	// source simulates an apiserver object endpoint.
 	source := fcache.NewFakeControllerSource()
 
+	// 获取存储
 	// This will hold the downstream state, as we know it.
 	downstream := NewStore(DeletionHandlingMetaNamespaceKeyFunc)
 
+	// 获取事件队列
 	// This will hold incoming changes. Note how we pass downstream in as a
 	// KeyLister, that way resync operations will result in the correct set
 	// of update/delete deltas.
 	fifo := NewDeltaFIFO(MetaNamespaceKeyFunc, downstream)
 
+	// 存储被删除的结果
 	// Let's do threadsafe output to get predictable test results.
 	deletionCounter := make(chan string, 1000)
 
+	// 控制器配置
 	cfg := &Config{
-		Queue:            fifo,
-		ListerWatcher:    source,
-		ObjectType:       &v1.Pod{},
-		FullResyncPeriod: time.Millisecond * 100,
-		RetryOnError:     false,
+		Queue:            fifo,                   // 内置队列
+		ListerWatcher:    source,                 // 数据源
+		ObjectType:       &v1.Pod{},              // 类型
+		FullResyncPeriod: time.Millisecond * 100, // 同步时间
+		RetryOnError:     false,                  // 是否重试
 
 		// Let's implement a simple controller that just deletes
 		// everything that comes in.
+		// 出队时的处理函数
 		Process: func(obj interface{}) error {
 			// Obj is from the Pop method of the Queue we make above.
 			newest := obj.(Deltas).Newest()
 
+			// 不是删除则往下载存储器里面放
 			if newest.Type != Deleted {
 				// Update our downstream store.
 				err := downstream.Add(newest.Object)
@@ -69,9 +87,11 @@ func Example() {
 					return err
 				}
 
+				// 得到了就删掉他
 				// Delete this object.
 				source.Delete(newest.Object.(runtime.Object))
 			} else {
+				// 删除事件就向删除里面塞
 				// Update our downstream store.
 				err := downstream.Delete(newest.Object)
 				if err != nil {
@@ -120,6 +140,7 @@ func Example() {
 	// c-framework
 }
 
+// 测试包装上一层informer
 func ExampleNewInformer() {
 	// source simulates an apiserver object endpoint.
 	source := fcache.NewFakeControllerSource()

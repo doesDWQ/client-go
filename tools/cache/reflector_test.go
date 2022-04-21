@@ -51,10 +51,16 @@ func (t *testLW) Watch(options metav1.ListOptions) (watch.Interface, error) {
 	return t.WatchFunc(options)
 }
 
+// 模拟错误处理 调用listAndWatch
 func TestCloseWatchChannelOnError(t *testing.T) {
+	// 获取 Reflector 对象
 	r := NewReflector(&testLW{}, &v1.Pod{}, NewStore(MetaNamespaceKeyFunc), 0)
+	// 获取pod对象
 	pod := &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "bar"}}
+
+	// 获取 FakeWatcher 对象
 	fw := watch.NewFake()
+	// 定义lister 和 watcher 函数
 	r.listerWatcher = &testLW{
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			return fw, nil
@@ -66,7 +72,7 @@ func TestCloseWatchChannelOnError(t *testing.T) {
 	go r.ListAndWatch(wait.NeverStop)
 	fw.Error(pod)
 	select {
-	case _, ok := <-fw.ResultChan():
+	case _, ok := <-fw.ResultChan(): // 监听结束信号
 		if ok {
 			t.Errorf("Watch channel left open after cancellation")
 		}
@@ -76,6 +82,17 @@ func TestCloseWatchChannelOnError(t *testing.T) {
 	}
 }
 
+func TestMy(t *testing.T) {
+	stopChan := make(chan struct{}, 1)
+	realClock := &clock.RealClock{}
+	wait.BackoffUntil(
+		func() {
+			fmt.Println("hello world")
+		}, wait.NewExponentialBackoffManager(800*time.Millisecond, 30*time.Second, 2*time.Minute, 2.0, 1.0, realClock), true, stopChan,
+	)
+}
+
+// 只要不停止就一直去跑
 func TestRunUntil(t *testing.T) {
 	stopCh := make(chan struct{})
 	store := NewStore(MetaNamespaceKeyFunc)
@@ -93,6 +110,7 @@ func TestRunUntil(t *testing.T) {
 	// Synchronously add a dummy pod into the watch channel so we
 	// know the RunUntil go routine is in the watch handler.
 	fw.Add(&v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "bar"}})
+	// 关闭chan后，run就停止了
 	close(stopCh)
 	select {
 	case _, ok := <-fw.ResultChan():
@@ -105,6 +123,15 @@ func TestRunUntil(t *testing.T) {
 	}
 }
 
+func TestMy1(t *testing.T) {
+	realClock := &clock.RealClock{}
+	t2 := realClock.NewTicker(time.Second * 10)
+
+	<-t2.C()
+	fmt.Println("hello world")
+}
+
+// 测试异步 chan 演示器
 func TestReflectorResyncChan(t *testing.T) {
 	s := NewStore(MetaNamespaceKeyFunc)
 	g := NewReflector(&testLW{}, &v1.Pod{}, s, time.Millisecond)
@@ -130,6 +157,7 @@ func BenchmarkReflectorResyncChanMany(b *testing.B) {
 	}
 }
 
+//  测试错误处理
 func TestReflectorWatchHandlerError(t *testing.T) {
 	s := NewStore(MetaNamespaceKeyFunc)
 	g := NewReflector(&testLW{}, &v1.Pod{}, s, 0)
@@ -144,6 +172,7 @@ func TestReflectorWatchHandlerError(t *testing.T) {
 	}
 }
 
+// 测试watchHandler
 func TestReflectorWatchHandler(t *testing.T) {
 	s := NewStore(MetaNamespaceKeyFunc)
 	g := NewReflector(&testLW{}, &v1.Pod{}, s, 0)
@@ -200,6 +229,7 @@ func TestReflectorWatchHandler(t *testing.T) {
 	}
 }
 
+// 测试stopWatch功能是否正常
 func TestReflectorStopWatch(t *testing.T) {
 	s := NewStore(MetaNamespaceKeyFunc)
 	g := NewReflector(&testLW{}, &v1.Pod{}, s, 0)

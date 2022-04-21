@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+// 测试store的增删改查操作
 // Test public interface
 func doTestStore(t *testing.T, store Store) {
 	mkObj := func(id string, val string) testStoreObject {
@@ -86,6 +87,7 @@ func doTestStore(t *testing.T, store Store) {
 	}
 }
 
+// 测试索引功能
 // Test public interface
 func doTestIndex(t *testing.T, indexer Indexer) {
 	mkObj := func(id string, val string) testStoreObject {
@@ -138,19 +140,23 @@ type testStoreObject struct {
 	val string
 }
 
+// 测试cache基础增删改查功能
 func TestCache(t *testing.T) {
 	doTestStore(t, NewStore(testStoreKeyFunc))
 }
 
+// 测试fifo的增删改查功能
 func TestFIFOCache(t *testing.T) {
 	doTestStore(t, NewFIFO(testStoreKeyFunc))
 }
 
+// 测试 Undelta 类型的 Store
 func TestUndeltaStore(t *testing.T) {
 	nop := func([]interface{}) {}
 	doTestStore(t, NewUndeltaStore(nop, testStoreKeyFunc))
 }
 
+// 测试索引是否能正常使用
 func TestIndex(t *testing.T) {
 	doTestIndex(t, NewIndexer(testStoreKeyFunc, testStoreIndexers()))
 }

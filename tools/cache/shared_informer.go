@@ -285,19 +285,19 @@ func WaitForCacheSync(stopCh <-chan struct{}, cacheSyncs ...InformerSynced) bool
 // sharedProcessor, which is responsible for relaying those
 // notifications to each of the informer's clients.
 type sharedIndexInformer struct {
-	indexer    Indexer
-	controller Controller
+	indexer    Indexer    // 存储
+	controller Controller // 控制器
 
-	processor             *sharedProcessor
-	cacheMutationDetector MutationDetector
+	processor             *sharedProcessor // 异步处理
+	cacheMutationDetector MutationDetector // 对象变化监听
 
-	listerWatcher ListerWatcher
+	listerWatcher ListerWatcher // 列表和监视器
 
 	// objectType is an example object of the type this informer is
 	// expected to handle.  Only the type needs to be right, except
 	// that when that is `unstructured.Unstructured` the object's
 	// `"apiVersion"` and `"kind"` must also be right.
-	objectType runtime.Object
+	objectType runtime.Object // 实际处理对象
 
 	// resyncCheckPeriod is how often we want the reflector's resync timer to fire so it can call
 	// shouldResync to check if any of our listeners need a resync.
@@ -309,15 +309,15 @@ type sharedIndexInformer struct {
 	// clock allows for testability
 	clock clock.Clock
 
-	started, stopped bool
-	startedLock      sync.Mutex
+	started, stopped bool       // 标记是否开始运行
+	startedLock      sync.Mutex // 标记锁
 
 	// blockDeltas gives a way to stop all event distribution so that a late event handler
 	// can safely join the shared informer.
-	blockDeltas sync.Mutex
+	blockDeltas sync.Mutex // 批量处理对象的时候的安全锁
 
 	// Called whenever the ListAndWatch drops the connection with an error.
-	watchErrorHandler WatchErrorHandler
+	watchErrorHandler WatchErrorHandler // 监听器错误时的处理函数
 }
 
 // dummyController hides the fact that a SharedInformer is different from a dedicated one
@@ -576,13 +576,14 @@ func (s *sharedIndexInformer) HandleDeltas(obj interface{}) error {
 // subset of the listeners that (a) is recomputed in the occasional
 // calls to shouldResync and (b) every listener is initially put in.
 // The non-sync distributions go to every listener.
+// processor 管理器
 type sharedProcessor struct {
-	listenersStarted bool
-	listenersLock    sync.RWMutex
-	listeners        []*processorListener
-	syncingListeners []*processorListener
-	clock            clock.Clock
-	wg               wait.Group
+	listenersStarted bool                 // 标记procoess管理器是否启动
+	listenersLock    sync.RWMutex         // procoess 数据操作锁
+	listeners        []*processorListener // 存储所有的监听器
+	syncingListeners []*processorListener // 存储所有的rsync监听器
+	clock            clock.Clock          // clock， 记录时钟对象
+	wg               wait.Group           // waitGroup控制器 控制每个listener的逐个启动
 }
 
 func (p *sharedProcessor) addListener(listener *processorListener) {
@@ -707,13 +708,14 @@ type processorListener struct {
 	// actual time between resyncs depends on when the
 	// sharedProcessor's `shouldResync` function is invoked and when
 	// the sharedIndexInformer processes `Sync` type Delta objects.
-	resyncPeriod time.Duration
+	resyncPeriod time.Duration // 同步周期
 	// nextResync is the earliest time the listener should get a full resync
 	nextResync time.Time
 	// resyncLock guards access to resyncPeriod and nextResync
 	resyncLock sync.Mutex
 }
 
+// 循环进程任务处理监听器
 func newProcessListener(handler ResourceEventHandler, requestedResyncPeriod, resyncPeriod time.Duration, now time.Time, bufferSize int) *processorListener {
 	ret := &processorListener{
 		nextCh:                make(chan interface{}),
@@ -763,6 +765,7 @@ func (p *processorListener) pop() {
 	}
 }
 
+// 根据不同的通知类型调用相应的方法
 func (p *processorListener) run() {
 	// this call blocks until the channel is closed.  When a panic happens during the notification
 	// we will catch it, **the offending item will be skipped!**, and after a short delay (one second)
@@ -800,10 +803,12 @@ func (p *processorListener) shouldResync(now time.Time) bool {
 	return now.After(p.nextResync) || now.Equal(p.nextResync)
 }
 
+// 设置下次 rsync 的时间
 func (p *processorListener) determineNextResync(now time.Time) {
 	p.resyncLock.Lock()
 	defer p.resyncLock.Unlock()
 
+	// 下次 resync 的时间
 	p.nextResync = now.Add(p.resyncPeriod)
 }
 

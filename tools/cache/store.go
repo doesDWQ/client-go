@@ -89,6 +89,7 @@ func (k KeyError) Error() string {
 // the object but not the object itself.
 type ExplicitKey string
 
+// 获取key值
 // MetaNamespaceKeyFunc is a convenient default KeyFunc which knows how to make
 // keys for API objects which implement meta.Interface.
 // The key uses the format <namespace>/<name> unless <namespace> is empty, then
@@ -110,6 +111,7 @@ func MetaNamespaceKeyFunc(obj interface{}) (string, error) {
 	return meta.GetName(), nil
 }
 
+// 通过meta获取 namespace和name
 // SplitMetaNamespaceKey returns the namespace and name that
 // MetaNamespaceKeyFunc encoded into key.
 //

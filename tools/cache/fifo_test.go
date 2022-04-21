@@ -37,14 +37,18 @@ func mkFifoObj(name string, val interface{}) testFifoObject {
 	return testFifoObject{name: name, val: val}
 }
 
+// fifo基础测试，插入，取出数据来进行操作
 func TestFIFO_basic(t *testing.T) {
 	f := NewFIFO(testFifoObjectKeyFunc)
 	const amount = 500
+
+	// 塞入500
 	go func() {
 		for i := 0; i < amount; i++ {
 			f.Add(mkFifoObj(string([]rune{'a', rune(i)}), i+1))
 		}
 	}()
+	// 塞入500
 	go func() {
 		for u := uint64(0); u < amount; u++ {
 			f.Add(mkFifoObj(string([]rune{'b', rune(u)}), u+1))
@@ -72,6 +76,7 @@ func TestFIFO_basic(t *testing.T) {
 	}
 }
 
+// 测试出错情况下也不丢失数据
 func TestFIFO_requeueOnPop(t *testing.T) {
 	f := NewFIFO(testFifoObjectKeyFunc)
 
@@ -85,10 +90,13 @@ func TestFIFO_requeueOnPop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
+	// 通过key判断数据是否存在
 	if _, ok, err := f.GetByKey("foo"); !ok || err != nil {
 		t.Fatalf("object should have been requeued: %t %v", ok, err)
 	}
 
+	// 测试爆出实际性错误
 	_, err = f.Pop(func(obj interface{}) error {
 		if obj.(testFifoObject).name != "foo" {
 			t.Fatalf("unexpected object: %#v", obj)
@@ -116,6 +124,7 @@ func TestFIFO_requeueOnPop(t *testing.T) {
 	}
 }
 
+// 测试添加数据
 func TestFIFO_addUpdate(t *testing.T) {
 	f := NewFIFO(testFifoObjectKeyFunc)
 	f.Add(mkFifoObj("foo", 10))
@@ -124,10 +133,13 @@ func TestFIFO_addUpdate(t *testing.T) {
 	if e, a := []interface{}{mkFifoObj("foo", 15)}, f.List(); !reflect.DeepEqual(e, a) {
 		t.Errorf("Expected %+v, got %+v", e, a)
 	}
+
+	// 列出所有的key进行对比
 	if e, a := []string{"foo"}, f.ListKeys(); !reflect.DeepEqual(e, a) {
 		t.Errorf("Expected %+v, got %+v", e, a)
 	}
 
+	// 测试能否正常获取到数据
 	got := make(chan testFifoObject, 2)
 	go func() {
 		for {
@@ -139,17 +151,28 @@ func TestFIFO_addUpdate(t *testing.T) {
 	if e, a := 15, first.val; e != a {
 		t.Errorf("Didn't get updated value (%v), got %v", e, a)
 	}
+
+	// 测试是否能获取到多余的数据
 	select {
 	case unexpected := <-got:
 		t.Errorf("Got second value %v", unexpected.val)
 	case <-time.After(50 * time.Millisecond):
 	}
+
+	// 数据是否存在测试
 	_, exists, _ := f.Get(mkFifoObj("foo", ""))
 	if exists {
 		t.Errorf("item did not get removed")
 	}
 }
 
+func TestArray(t *testing.T) {
+	arr := []string{"a", "b"}
+
+	fmt.Println(arr[:0])
+}
+
+// 批量替换队列数据
 func TestFIFO_addReplace(t *testing.T) {
 	f := NewFIFO(testFifoObjectKeyFunc)
 	f.Add(mkFifoObj("foo", 10))
@@ -176,6 +199,7 @@ func TestFIFO_addReplace(t *testing.T) {
 	}
 }
 
+// 测试队列的出入队顺序是否符合
 func TestFIFO_detectLineJumpers(t *testing.T) {
 	f := NewFIFO(testFifoObjectKeyFunc)
 
@@ -204,6 +228,7 @@ func TestFIFO_detectLineJumpers(t *testing.T) {
 	}
 }
 
+// 测试队列的不存在则插入功能
 func TestFIFO_addIfNotPresent(t *testing.T) {
 	f := NewFIFO(testFifoObjectKeyFunc)
 
@@ -224,6 +249,7 @@ func TestFIFO_addIfNotPresent(t *testing.T) {
 	}
 }
 
+// HasSynced 方法测试
 func TestFIFO_HasSynced(t *testing.T) {
 	tests := []struct {
 		actions        []func(f *FIFO)
@@ -280,6 +306,7 @@ func TestFIFO_HasSynced(t *testing.T) {
 	}
 }
 
+// 测试能否正常关闭
 // TestFIFO_PopShouldUnblockWhenClosed checks that any blocking Pop on an empty queue
 // should unblock and return after Close is called.
 func TestFIFO_PopShouldUnblockWhenClosed(t *testing.T) {

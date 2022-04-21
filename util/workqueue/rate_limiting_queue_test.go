@@ -24,8 +24,11 @@ import (
 )
 
 func TestRateLimitingQueue(t *testing.T) {
+	// 获取限速器
 	limiter := NewItemExponentialFailureRateLimiter(1*time.Millisecond, 1*time.Second)
+	// 获取限速的queue
 	queue := NewRateLimitingQueue(limiter).(*rateLimitingType)
+	// 获取假时钟
 	fakeClock := clock.NewFakeClock(time.Now())
 	delayingQueue := &delayingType{
 		Interface:       New(),

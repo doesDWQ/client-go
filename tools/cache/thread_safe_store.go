@@ -70,6 +70,7 @@ type threadSafeMap struct {
 	indices Indices
 }
 
+// 并发的插入数据
 func (c *threadSafeMap) Add(key string, obj interface{}) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -78,6 +79,7 @@ func (c *threadSafeMap) Add(key string, obj interface{}) {
 	c.updateIndices(oldObject, obj, key)
 }
 
+// 可以并发的修改数据
 func (c *threadSafeMap) Update(key string, obj interface{}) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -86,6 +88,7 @@ func (c *threadSafeMap) Update(key string, obj interface{}) {
 	c.updateIndices(oldObject, obj, key)
 }
 
+// 可以并发的删除数据
 func (c *threadSafeMap) Delete(key string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -95,6 +98,7 @@ func (c *threadSafeMap) Delete(key string) {
 	}
 }
 
+// 可以并发的获取数据
 func (c *threadSafeMap) Get(key string) (item interface{}, exists bool) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
@@ -102,6 +106,7 @@ func (c *threadSafeMap) Get(key string) (item interface{}, exists bool) {
 	return item, exists
 }
 
+// 可以并发的列出数据
 func (c *threadSafeMap) List() []interface{} {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
@@ -112,6 +117,7 @@ func (c *threadSafeMap) List() []interface{} {
 	return list
 }
 
+// 获取所有的key
 // ListKeys returns a list of all the keys of the objects currently
 // in the threadSafeMap.
 func (c *threadSafeMap) ListKeys() []string {
@@ -124,6 +130,7 @@ func (c *threadSafeMap) ListKeys() []string {
 	return list
 }
 
+// 使用map替换数据
 func (c *threadSafeMap) Replace(items map[string]interface{}, resourceVersion string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -133,6 +140,7 @@ func (c *threadSafeMap) Replace(items map[string]interface{}, resourceVersion st
 	c.rebuildIndices()
 }
 
+// 重建索引
 // rebuildIndices rebuilds all indices for the current set c.items. Assumes that c.lock is held by caller
 func (c *threadSafeMap) rebuildIndices() {
 	c.indices = Indices{}
@@ -242,6 +250,7 @@ func (c *threadSafeMap) AddIndexers(newIndexers Indexers) error {
 	oldKeys := sets.StringKeySet(c.indexers)
 	newKeys := sets.StringKeySet(newIndexers)
 
+	// 防止重复添加
 	if oldKeys.HasAny(newKeys.List()...) {
 		return fmt.Errorf("indexer conflict: %v", oldKeys.Intersection(newKeys))
 	}
@@ -257,6 +266,7 @@ func (c *threadSafeMap) AddIndexers(newIndexers Indexers) error {
 	return nil
 }
 
+// 更新对应关系
 // updateIndices modifies the objects location in the managed indexes, if this is an update, you must provide an oldObj
 // updateIndices must be called from a function that already has a lock on the cache
 func (c *threadSafeMap) updateIndices(oldObj interface{}, newObj interface{}, key string) {

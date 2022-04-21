@@ -156,8 +156,8 @@ func NewDeltaFIFOWithOptions(opts DeltaFIFOOptions) *DeltaFIFO {
 // A note on threading: If you call Pop() in parallel from multiple
 // threads, you could end up with multiple threads processing slightly
 // different versions of the same object.
+// lock/cond protects access to 'items' and 'queue'.
 type DeltaFIFO struct {
-	// lock/cond protects access to 'items' and 'queue'.
 	lock sync.RWMutex
 	cond sync.Cond
 
@@ -358,6 +358,7 @@ func isDup(a, b *Delta) *Delta {
 	return nil
 }
 
+// 两个数据都是删除则只保留一个
 // keep the one with the most information if both are deletions.
 func isDeletionDup(a, b *Delta) *Delta {
 	if b.Type != Deleted || a.Type != Deleted {
@@ -370,15 +371,18 @@ func isDeletionDup(a, b *Delta) *Delta {
 	return b
 }
 
+// 锁住，并且往其中添加上对应的事件
 // queueActionLocked appends to the delta list for the object.
 // Caller must lock first.
 func (f *DeltaFIFO) queueActionLocked(actionType DeltaType, obj interface{}) error {
+	// 获取key
 	id, err := f.KeyOf(obj)
 	if err != nil {
 		return KeyError{obj, err}
 	}
 	oldDeltas := f.items[id]
 	newDeltas := append(oldDeltas, Delta{actionType, obj})
+	// 合并数据
 	newDeltas = dedupDeltas(newDeltas)
 
 	if len(newDeltas) > 0 {
@@ -650,6 +654,7 @@ func (f *DeltaFIFO) syncKeyLocked(key string) error {
 		return nil
 	}
 
+	// 重新载入函数
 	if err := f.queueActionLocked(Sync, obj); err != nil {
 		return fmt.Errorf("couldn't queue object: %v", err)
 	}

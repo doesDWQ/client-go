@@ -131,10 +131,10 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 		c.config.Queue.Close()
 	}()
 	r := NewReflector(
-		c.config.ListerWatcher,
-		c.config.ObjectType,
-		c.config.Queue,
-		c.config.FullResyncPeriod,
+		c.config.ListerWatcher,    // 设置lw
+		c.config.ObjectType,       // 设置操作类型
+		c.config.Queue,            // 设置队列
+		c.config.FullResyncPeriod, // reflector 同步的时间
 	)
 	r.ShouldResync = c.config.ShouldResync
 	r.WatchListPageSize = c.config.WatchListPageSize

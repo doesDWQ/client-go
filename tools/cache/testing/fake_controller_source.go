@@ -35,7 +35,7 @@ import (
 func NewFakeControllerSource() *FakeControllerSource {
 	return &FakeControllerSource{
 		Items:       map[nnu]runtime.Object{},
-		Broadcaster: watch.NewBroadcaster(100, watch.WaitIfChannelFull),
+		Broadcaster: watch.NewBroadcaster(100, watch.WaitIfChannelFull), // 注册观察者
 	}
 }
 
@@ -58,10 +58,10 @@ func NewFakePVCControllerSource() *FakePVCControllerSource {
 // FakeControllerSource implements listing/watching for testing.
 type FakeControllerSource struct {
 	lock        sync.RWMutex
-	Items       map[nnu]runtime.Object
-	changes     []watch.Event // one change per resourceVersion
-	Broadcaster *watch.Broadcaster
-	lastRV      int
+	Items       map[nnu]runtime.Object // 有事件的对象
+	changes     []watch.Event          // one change per resourceVersion	所有的改变事件
+	Broadcaster *watch.Broadcaster     // 观察者
+	lastRV      int                    // 最后的版本
 
 	// Set this to simulate an error on List()
 	ListError error
@@ -81,6 +81,7 @@ type nnu struct {
 	uid             types.UID
 }
 
+// 重置事件监视功能
 // ResetWatch simulates connection problems; creates a new Broadcaster and flushes
 // the change queue so that clients have to re-list and watch.
 func (f *FakeControllerSource) ResetWatch() {
@@ -173,6 +174,7 @@ func (f *FakeControllerSource) getListItemsLocked() ([]runtime.Object, error) {
 	return list, nil
 }
 
+// 返回list对象并且设置资源版本
 // List returns a list object, with its resource version set.
 func (f *FakeControllerSource) List(options metav1.ListOptions) (runtime.Object, error) {
 	f.lock.RLock()

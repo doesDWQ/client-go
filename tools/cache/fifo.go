@@ -112,6 +112,7 @@ type FIFO struct {
 	lock sync.RWMutex
 	cond sync.Cond
 	// We depend on the property that every key in `items` is also in `queue`
+	// 标记数据的map
 	items map[string]interface{}
 	queue []string
 
@@ -143,6 +144,7 @@ func (f *FIFO) Close() {
 	f.cond.Broadcast()
 }
 
+// 如英文注释中的两个功能一样
 // HasSynced returns true if an Add/Update/Delete/AddIfNotPresent are called first,
 // or the first batch of items inserted by Replace() has been popped.
 func (f *FIFO) HasSynced() bool {
@@ -161,10 +163,12 @@ func (f *FIFO) Add(obj interface{}) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	f.populated = true
+	// 数据不存在往队列里面塞
 	if _, exists := f.items[id]; !exists {
 		f.queue = append(f.queue, id)
 	}
 	f.items[id] = obj
+	// 发送唤醒通知
 	f.cond.Broadcast()
 	return nil
 }
@@ -300,6 +304,7 @@ func (f *FIFO) Pop(process PopProcessFunc) (interface{}, error) {
 			continue
 		}
 		delete(f.items, id)
+		// 错误操作则放回
 		err := process(item)
 		if e, ok := err.(ErrRequeue); ok {
 			f.addIfNotPresent(id, item)
